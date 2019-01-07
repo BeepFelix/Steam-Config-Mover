@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28010.2036
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Steam Config Mover", "Steam Config Mover\Steam Config Mover.csproj", "{C5D17E9F-D6DD-4F06-B714-F4E36A00176D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C5D17E9F-D6DD-4F06-B714-F4E36A00176D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C5D17E9F-D6DD-4F06-B714-F4E36A00176D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C5D17E9F-D6DD-4F06-B714-F4E36A00176D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C5D17E9F-D6DD-4F06-B714-F4E36A00176D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {64A6EFE1-304D-47FE-9A46-96C91771BD5B}
+	EndGlobalSection
+EndGlobal
