@@ -248,7 +248,7 @@
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Fixed3D;
 			this.MaximizeBox = false;
 			this.Name = "SteamConfigMover";
-			this.Text = "Steam Userdata Copier";
+			this.Text = "Steam Userdata Mover";
 			this.groupBox1.ResumeLayout(false);
 			this.groupBox1.PerformLayout();
 			this.groupBox2.ResumeLayout(false);
