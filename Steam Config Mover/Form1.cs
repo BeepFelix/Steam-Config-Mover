@@ -25,6 +25,11 @@ namespace Steam_Config_Mover
 					inputSteamWebKey.Text = key[0];
 				}
 			}
+
+			HttpClientHandler hch = new HttpClientHandler();
+			hch.Proxy = null;
+			hch.UseProxy = false;
+			this.client = new HttpClient(hch);
 		}
 		
 		static string AccountIDToSteamID64(int accountid)
@@ -44,8 +49,20 @@ namespace Steam_Config_Mover
 			Process.Start("https://steamcommunity.com/dev/apikey");
 		}
 
+		private List<List<string>> SplitList(List<string> steamids, int size)
+		{
+			List<List<string>> chunks = new List<List<string>>();
+
+			for (int i = 0; i < steamids.Count; i += size)
+			{
+				chunks.Add(steamids.GetRange(i, Math.Min(size, steamids.Count - i)));
+			}
+
+			return chunks;
+		}
+
 		List<Player> steamIDs = new List<Player>();
-		HttpClient client = new HttpClient();
+		HttpClient client = null;
 		AppList appList = null;
 		string steamPath = null;
 		JavaScriptSerializer _desializer = new JavaScriptSerializer();
@@ -55,7 +72,7 @@ namespace Steam_Config_Mover
 			progressBar.Style = ProgressBarStyle.Marquee;
 			progressBar.MarqueeAnimationSpeed = 50;
 			
-			steamPath = await Task.Run(() =>
+			steamPath = steamPath != null ? steamPath : await Task.Run(() =>
 			{
 				// Find Steam installation path. First GetValue() is for 64-Bit, second one is for 32-Bit
 				object r = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Valve\Steam", "InstallPath", null);
@@ -80,17 +97,28 @@ namespace Steam_Config_Mover
 				return;
 			}
 
-			string responseStringApps = await client.GetStringAsync("https://api.steampowered.com/ISteamApps/GetAppList/v2/");
-			if (responseStringApps == null)
+			// Only download app list once
+			if (appList == null)
 			{
-				progressBar.Style = ProgressBarStyle.Blocks;
-				progressBar.MarqueeAnimationSpeed = 0;
-				MessageBox.Show("Failed to get AppList from Steam API. Steam could be down.");
-				return;
-			}
+				string responseStringApps = await client.GetStringAsync("https://api.steampowered.com/ISteamApps/GetAppList/v2/?key=" + inputSteamWebKey.Text.ToString());
+				if (responseStringApps == null)
+				{
+					progressBar.Style = ProgressBarStyle.Blocks;
+					progressBar.MarqueeAnimationSpeed = 0;
+					MessageBox.Show("Failed to get AppList from Steam API. Steam could be down.");
+					return;
+				}
 
-			_desializer.MaxJsonLength = responseStringApps.Length + 10;
-			appList = _desializer.Deserialize<AppList>(responseStringApps);
+				_desializer.MaxJsonLength = responseStringApps.Length + 10;
+				appList = _desializer.Deserialize<AppList>(responseStringApps);
+				if (appList.applist.apps.Count <= 0)
+				{
+					progressBar.Style = ProgressBarStyle.Blocks;
+					progressBar.MarqueeAnimationSpeed = 0;
+					MessageBox.Show("Steam API returned no apps. Please try again.");
+					return;
+				}
+			}
 
 			string[] directories = Directory.GetDirectories(steamPath + "/userdata");
 			steamIDs.Clear();
@@ -112,37 +140,34 @@ namespace Steam_Config_Mover
 					string sid = AccountIDToSteamID64(int.Parse(directory.Split('\\').Last()));
 					steamidList.Add(sid);
 				}
-				
-				// TODO: Support more than 100 accounts
-				string responseString = await client.GetStringAsync("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=" + inputSteamWebKey.Text.ToString() + "&steamids=" + string.Join(",", steamidList));
 
-				if (responseString == null)
-				{
-					progressBar.Style = ProgressBarStyle.Blocks;
-					progressBar.MarqueeAnimationSpeed = 0;
-					MessageBox.Show("Invalid Steam API response - Could not fetch profile information");
-					return;
-				}
+				List<List<string>> chunks = this.SplitList(steamidList, 100);
 
-				PlayerSummary response = _desializer.Deserialize<PlayerSummary>(responseString);
-				
-				if (response.response == null || response.response.players == null || response.response.players[0] == null || response.response.players[0].personaname == null)
+				for (int i = 0; i < chunks.Count; i++)
 				{
-					progressBar.Style = ProgressBarStyle.Blocks;
-					progressBar.MarqueeAnimationSpeed = 0;
-					MessageBox.Show("Invalid Steam API resposne - Could not fetch profile information");
-					return;
-				}
-
-				foreach (Player res in response.response.players)
-				{
-					foreach (string id in steamidList)
+					string responseString = await client.GetStringAsync("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=" + inputSteamWebKey.Text.ToString() + "&steamids=" + string.Join(",", steamidList));
+					if (responseString == null)
 					{
-						if (res.steamid == id)
-						{
-							steamIDs.Add(res);
-							break;
-						}
+						progressBar.Style = ProgressBarStyle.Blocks;
+						progressBar.MarqueeAnimationSpeed = 0;
+						MessageBox.Show("Invalid Steam API response - Could not fetch profile information");
+						continue;
+					}
+
+					_desializer.MaxJsonLength = responseString.Length + 10;
+					PlayerSummary response = _desializer.Deserialize<PlayerSummary>(responseString);
+
+					if (response.response == null || response.response.players == null || response.response.players[0] == null || response.response.players[0].personaname == null)
+					{
+						progressBar.Style = ProgressBarStyle.Blocks;
+						progressBar.MarqueeAnimationSpeed = 0;
+						MessageBox.Show("Invalid Steam API resposne - Could not fetch profile information");
+						continue;
+					}
+
+					foreach (Player res in response.response.players)
+					{
+						steamIDs.Add(res);
 					}
 				}
 			}
@@ -269,13 +294,13 @@ namespace Steam_Config_Mover
 					Directory.Delete(steamPath + "/userdata/" + deleteAcc, true);
 					copyFrom.Items.RemoveAt(accountListDeleteMenu.SelectedIndex);
 					copyTo.Items.RemoveAt(accountListDeleteMenu.SelectedIndex);
-					accountListDeleteMenu.Items.RemoveAt(accountListDeleteMenu.SelectedIndex);
 					accountListProfileList.Items.RemoveAt(accountListDeleteMenu.SelectedIndex);
+					accountListDeleteMenu.Items.RemoveAt(accountListDeleteMenu.SelectedIndex);
 
 					copyFrom.SelectedIndex = -1;
 					copyTo.SelectedIndex = -1;
-					accountListDeleteMenu.SelectedIndex = -1;
 					accountListProfileList.SelectedIndex = -1;
+					accountListDeleteMenu.SelectedIndex = -1;
 				}
 				catch (Exception ex)
 				{
